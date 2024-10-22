@@ -31,3 +31,4 @@ vite.config.js.timestamp-*
 # other files to ignore
 .DS_Store
 node_modules
+dist
