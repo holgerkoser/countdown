@@ -1,12 +1,38 @@
 <template>
   <div
-    ref="tick"
+    ref="daysTick"
     class="tick"
   >
     <div
       data-repeat="true"
-      data-layout="horizontal fit"
-      data-transform="preset(d, h, m, s) -> delay"
+      data-layout="horizontal center fit"
+      data-transform="preset(d) -> delay"
+    >
+      <div class="tick-group days">
+        <div
+          data-key="value"
+          data-repeat="true"
+          data-transform="pad(00) -> split -> delay"
+        >
+          <span data-view="flip" />
+        </div>
+        <span
+          data-key="label"
+          data-view="text"
+          class="tick-label"
+          style="margin-bottom: 1em;"
+        />
+      </div>
+    </div>
+  </div>
+  <div
+    ref="timeTick"
+    class="tick"
+  >
+    <div
+      data-repeat="true"
+      data-layout="horizontal center fit"
+      data-transform="preset(h, m, s) -> delay"
     >
       <div class="tick-group">
         <div
@@ -16,7 +42,6 @@
         >
           <span data-view="flip" />
         </div>
-
         <span
           data-key="label"
           data-view="text"
@@ -25,7 +50,6 @@
       </div>
     </div>
   </div>
-
   <div
     class="tick-onended-message"
     style="display: none"
@@ -35,64 +59,80 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import Tick from '@pqina/flip'
 import '@pqina/flip/dist/flip.min.css'
 
-const tick = ref(null)
-
 const endDate = new Date('2024-12-31')
-console.log(endDate.toISOString())
 const excludedDays = ['2024-10-25', '2024-11-01', '2024-12-24', '2024-12-25', '2024-12-26', '2024-12-31']
+const timeTick = ref(null)
+const daysTick = ref(null)
 
-function calculateDuration () {
-  let date = new Date()
-  let days = 0
-  let hours = 0
-  let minutes = 0
-  let seconds = 0
-  while (date <= endDate) {
-    const dayOfWeek = date.getDay()
-    const dateString = date.toISOString().slice(0, 10)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !excludedDays.includes(dateString)) {
-      days += 1
-    }
-    date = new Date(date.getTime() + 24 * 3600 * 1000)
-  }
-  date = new Date()
-  const dateString = date.toISOString().slice(0, 10)
-  let time = Math.floor((date.getTime() - Date.parse(dateString + ' 00:00:00')) / 1000)
-  if (time >= 9 * 3600) {
-    time -= 9 * 3600
-    days -= 1
-    if (time <= 8 * 3600) {
-      time = 8 * 3600 - time
-      hours = Math.trunc(time / 3600)
-      minutes = Math.trunc(time / 60) % 60
-      seconds = time % 60
-    }
-  }
-  days = Math.max(0, days - 2)
-  return [days, hours, minutes, seconds]
+const ticks = {
+  time: null,
+  days: null,
+  start () {
+    const timer = Tick.helper.interval(() => {
+      let date = new Date()
+      let days = 0
+      while (date <= endDate) {
+        const dayOfWeek = date.getDay()
+        const dateString = date.toISOString().slice(0, 10)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !excludedDays.includes(dateString)) {
+          days += 1
+        }
+        date = new Date(date.getTime() + 24 * 3600 * 1000)
+      }
+      date = new Date()
+      const dateString = date.toISOString().slice(0, 10)
+      let time = Math.floor((date.getTime() - Date.parse(dateString + ' 00:00:00')) / 1000)
+      if (time >= 9 * 3600) {
+        time -= 9 * 3600
+        days -= 1
+        if (time <= 8 * 3600) {
+          time = 8 * 3600 - time
+        }
+      }
+      days = Math.max(0, days - 2)
+      this.time.value = [
+        Math.trunc(time / 3600),
+        Math.trunc(time / 60) % 60,
+        Math.trunc(time) % 60,
+      ]
+      this.days.value = [
+        days,
+      ]
+    }, 1000, {
+      autostart: false,
+    })
+    timer.start()
+  },
 }
 
 onMounted(() => {
-  Tick.DOM.create(tick.value, {
+  Tick.DOM.create(daysTick.value, {
     credits: false,
     didInit (tick) {
-      const counter = Tick.count.down(endDate)
-
-      counter.onupdate = value => {
-        tick.value = calculateDuration(value)
+      ticks.days = tick
+      if (ticks.time) {
+        ticks.start()
       }
-
-      counter.onended = () => {
-        console.log('onended')
-      }
-
-      console.log('initialized')
     },
   })
+  Tick.DOM.create(timeTick.value, {
+    credits: false,
+    didInit (tick) {
+      ticks.time = tick
+      if (ticks.days) {
+        ticks.start()
+      }
+    },
+  })
+})
+
+onUnmounted(() => {
+  Tick.DOM.destroy(timeTick.value)
+  Tick.DOM.destroy(daysTick.value)
 })
 </script>
 
@@ -109,7 +149,7 @@ onMounted(() => {
 }
 
 .tick-label {
-  margin-top: 1em;
+  margin-top: 0.5em;
   font-size: 1em;
 }
 
@@ -128,8 +168,15 @@ onMounted(() => {
 }
 
 .tick-group {
-  margin: 0 0.5em;
+  margin: 0 0.8em;
   text-align: center;
+}
+
+.tick-group.days:first-child {
+  margin-left: 0.1em;
+}
+.tick-group.days:last-child {
+  margin-right: 0.1em;
 }
 
 .tick-text-inline {
