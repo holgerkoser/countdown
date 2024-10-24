@@ -71,8 +71,9 @@ const daysTick = ref(null)
 const ticks = {
   time: null,
   days: null,
+  timer: null,
   start () {
-    const timer = Tick.helper.interval(() => {
+    this.timer = Tick.helper.interval(() => {
       let date = new Date()
       let days = 0
       while (date <= endDate) {
@@ -91,7 +92,11 @@ const ticks = {
         days -= 1
         if (time <= 8 * 3600) {
           time = 8 * 3600 - time
+        } else {
+          time = 0
         }
+      } else {
+        time = 0
       }
       days = Math.max(0, days - 2)
       this.time.value = [
@@ -102,10 +107,12 @@ const ticks = {
       this.days.value = [
         days,
       ]
-    }, 1000, {
-      autostart: false,
-    })
-    timer.start()
+    }, 1000)
+  },
+  destroy () {
+    this.days?.destroy()
+    this.time?.destroy()
+    this.timer?.stop()
   },
 }
 
@@ -131,8 +138,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  Tick.DOM.destroy(timeTick.value)
-  Tick.DOM.destroy(daysTick.value)
+  ticks.destroy()
 })
 </script>
 
@@ -149,7 +155,7 @@ onUnmounted(() => {
 }
 
 .tick-label {
-  margin-top: 0.5em;
+  margin-top: 0.6em;
   font-size: 1em;
 }
 
@@ -172,10 +178,9 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.tick-group.days:first-child {
+.tick-group.days {
+  margin-top: 0.5em;
   margin-left: 0.1em;
-}
-.tick-group.days:last-child {
   margin-right: 0.1em;
 }
 
