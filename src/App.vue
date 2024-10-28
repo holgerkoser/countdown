@@ -64,9 +64,26 @@ import Tick from '@pqina/flip'
 import '@pqina/flip/dist/flip.min.css'
 
 const endDate = new Date('2024-12-31')
-const excludedDays = ['2024-10-25', '2024-11-01', '2024-12-24', '2024-12-25', '2024-12-26', '2024-12-31']
+const holidays = ['2024-11-01', '2024-12-24', '2024-12-25', '2024-12-26', '2024-12-31']
+const vacationDays = ['2024-12-27', '2024-12-30']
+const nonWorkingDays = [...holidays, ...vacationDays]
 const timeTick = ref(null)
 const daysTick = ref(null)
+
+function getRemainingDays (time) {
+  let days = 0
+  let date
+  do {
+    time += 24 * 3600 * 1000
+    date = new Date(time)
+    const dayOfWeek = date.getDay()
+    const dateString = date.toISOString().slice(0, 10)
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !nonWorkingDays.includes(dateString)) {
+      days += 1
+    }
+  } while (date < endDate)
+  return Math.max(0, days)
+}
 
 const ticks = {
   time: null,
@@ -74,31 +91,18 @@ const ticks = {
   timer: null,
   start () {
     this.timer = Tick.helper.interval(() => {
-      let date = new Date()
-      let days = 0
-      while (date <= endDate) {
-        const dayOfWeek = date.getDay()
-        const dateString = date.toISOString().slice(0, 10)
-        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !excludedDays.includes(dateString)) {
-          days += 1
-        }
-        date = new Date(date.getTime() + 24 * 3600 * 1000)
-      }
-      date = new Date()
+      const date = new Date()
+      let days = getRemainingDays(date.getTime())
       const dateString = date.toISOString().slice(0, 10)
       let time = Math.floor((date.getTime() - Date.parse(dateString + ' 00:00:00')) / 1000)
-      if (time >= 9 * 3600) {
-        time -= 9 * 3600
-        days -= 1
-        if (time <= 8 * 3600) {
-          time = 8 * 3600 - time
-        } else {
-          time = 0
-        }
-      } else {
+      if (time <= 9 * 3600) {
+        days += 1
         time = 0
+      } else if (time >= 17 * 3600) {
+        time = 0
+      } else {
+        time = 17 * 3600 - time
       }
-      days = Math.max(0, days - 2)
       this.time.value = [
         Math.trunc(time / 3600),
         Math.trunc(time / 60) % 60,
