@@ -70,19 +70,47 @@ const nonWorkingDays = [...holidays, ...vacationDays]
 const timeTick = ref(null)
 const daysTick = ref(null)
 
-function getRemainingDays (time) {
+function isWorkday (date) {
+  const dayOfWeek = date.getDay()
+  const dateString = date.toISOString().slice(0, 10)
+  return dayOfWeek !== 0 && dayOfWeek !== 6 && !nonWorkingDays.includes(dateString)
+}
+
+function addDays (date, i = 1) {
+  date.setDate(date.getDate() + i)
+}
+
+function getRemainingTime (time) {
   let days = 0
-  let date
+  let hours = 0
+  let min = 0
+  let sec = 0
+  const date = new Date(time)
+  if (isWorkday(date)) {
+    const secondsOfDay = getSecondsOfDay(date)
+    console.log(secondsOfDay)
+    if (secondsOfDay <= 9 * 3600) {
+      days += 1
+    } else if (secondsOfDay < 17 * 3600) {
+      const remainingSeconds = 17 * 3600 - secondsOfDay
+      hours = Math.trunc(remainingSeconds / 3600)
+      min = Math.trunc(remainingSeconds / 60) % 60
+      sec = Math.trunc(remainingSeconds) % 60
+    }
+  }
+  addDays(date, 1)
   do {
-    time += 24 * 3600 * 1000
-    date = new Date(time)
-    const dayOfWeek = date.getDay()
-    const dateString = date.toISOString().slice(0, 10)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !nonWorkingDays.includes(dateString)) {
+    if (isWorkday(date)) {
       days += 1
     }
-  } while (date < endDate)
-  return Math.max(0, days)
+    addDays(date, 1)
+  } while (date < endDate) // eslint-disable-line no-unmodified-loop-condition
+  days = Math.max(0, days)
+  return [days, hours, min, sec]
+}
+
+function getSecondsOfDay (date) {
+  return Math.floor((date - new Date(date.getFullYear(), date.getMonth(), date.getDate())) / 1000)
 }
 
 const ticks = {
@@ -91,26 +119,9 @@ const ticks = {
   timer: null,
   start () {
     this.timer = Tick.helper.interval(() => {
-      const date = new Date()
-      let days = getRemainingDays(date.getTime())
-      const dateString = date.toISOString().slice(0, 10)
-      let time = Math.floor((date.getTime() - Date.parse(dateString + ' 00:00:00')) / 1000)
-      if (time <= 9 * 3600) {
-        days += 1
-        time = 0
-      } else if (time >= 17 * 3600) {
-        time = 0
-      } else {
-        time = 17 * 3600 - time
-      }
-      this.time.value = [
-        Math.trunc(time / 3600),
-        Math.trunc(time / 60) % 60,
-        Math.trunc(time) % 60,
-      ]
-      this.days.value = [
-        days,
-      ]
+      const [days, hours, min, sec] = getRemainingTime(Date.now())
+      this.days.value = [days]
+      this.time.value = [hours, min, sec]
     }, 1000)
   },
   destroy () {

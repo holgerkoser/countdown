@@ -8,6 +8,7 @@ export default [
       '.pnp.loader.mjs',
       '.yarn/sdks',
       '**/dist/**',
+      '**/docs/**',
     ],
   }),
   {
